@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Notes & AI Summarizer</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); opacity: 0.9; }
+            50% { transform: scale(1.15); opacity: 0.4; }
+            100% { transform: scale(0.95); opacity: 0.9; }
+        }
+        .recording-pulse {
+            animation: pulse-ring 1.8s infinite ease-in-out;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(51, 65, 85, 0.8);
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
+
+    <!-- TOP HEADER -->
+    <header class="border-b border-slate-800 bg-slate-900/90 backdrop-blur sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="p-2.5 bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 rounded-xl shadow-lg shadow-indigo-500/20">
+                    <i class="fa-solid fa-microphone-lines text-white text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="text-base font-bold bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-slate-400">
+                        Voice Notes & AI Summarizer
+                    </h1>
+                    <p class="text-[11px] text-slate-400">Live Speech Transcription & Smart Action Items Engine</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <!-- Status Badge -->
+                <div id="statusBadge" class="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-300 text-xs font-medium">
+                    <span id="statusDot" class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                    <span id="statusText">Ready</span>
+                </div>
+
+                <!-- API Key Settings Button -->
+                <button onclick="toggleKeyModal()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-medium transition active:scale-95">
+                    <i class="fa-solid fa-key text-amber-400"></i>
+                    <span class="hidden sm:inline">API Key</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN WORKSPACE -->
+    <main class="flex-1 max-w-6xl w-full mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Left Panel: Recording Controls & Live Transcript -->
+        <div class="lg:col-span-5 flex flex-col space-y-5">
+            
+            <!-- Recording Controls Card -->
+            <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-xl relative overflow-hidden backdrop-blur-md">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                        <i class="fa-solid fa-sliders text-indigo-400"></i>
+                        Audio Controls
+                    </h2>
+                    <span id="recordingTimer" class="font-mono text-xs px-2.5 py-1 bg-slate-950 text-slate-300 rounded-lg border border-slate-800">
+                        00:00
+                    </span>
+                </div>
+
+                <!-- Visualizer Wave Form -->
+                <div class="w-full h-16 bg-slate-950/90 rounded-xl border border-slate-800 mb-4 flex items-center justify-center relative overflow-hidden">
+                    <canvas id="visualizerCanvas" class="w-full h-full"></canvas>
+                    <div id="visualizerPlaceholder" class="absolute text-xs text-slate-500 flex items-center gap-2">
+                        <i class="fa-solid fa-microphone text-indigo-400 animate-pulse"></i> Press "Start Recording" to speak
+                    </div>
+                </div>
+
+                <!-- Primary Action Buttons -->
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <button id="startBtn" onclick="startSession()" class="flex items-center justify-center gap-2 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs rounded-xl transition shadow-lg shadow-emerald-900/30 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i class="fa-solid fa-play text-xs"></i>
+                        <span>Start Recording</span>
+                    </button>
+                    
+                    <button id="stopBtn" onclick="stopSession()" disabled class="flex items-center justify-center gap-2 py-2.5 px-4 bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs rounded-xl transition shadow-lg shadow-rose-900/30 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i class="fa-solid fa-square text-xs"></i>
+                        <span>Stop Recording</span>
+                    </button>
+                </div>
+
+                <!-- Sample Data Instant Load Buttons -->
+                <div class="pt-3 border-t border-slate-800/80">
+                    <p class="text-[11px] text-slate-400 mb-2 font-medium flex items-center gap-1">
+                        <i class="fa-solid fa-vial text-amber-400"></i> Instant Testing Samples:
+                    </p>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="loadSampleText('standup')" class="py-1.5 px-2 bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-[11px] rounded-lg border border-slate-700/60 transition truncate text-left">
+                            <i class="fa-solid fa-users text-indigo-400 mr-1"></i> Team Standup Sample
+                        </button>
+                        <button onclick="loadSampleText('brainstorm')" class="py-1.5 px-2 bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-[11px] rounded-lg border border-slate-700/60 transition truncate text-left">
+                            <i class="fa-solid fa-lightbulb text-amber-400 mr-1"></i> Brainstorm Sample
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Live Transcript Panel -->
+            <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-xl flex-1 flex flex-col backdrop-blur-md">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                        <i class="fa-solid fa-align-left text-purple-400"></i>
+                        Live Transcript
+                    </h2>
+                    <button onclick="clearTranscript()" class="text-[11px] text-slate-400 hover:text-slate-200 transition flex items-center gap-1">
+                        <i class="fa-solid fa-trash-can"></i> Clear
+                    </button>
+                </div>
+                
+                <textarea id="transcriptInput" rows="9" placeholder="Your spoken words will appear here in real time as you speak... Or click a sample button above to test instantly." class="w-full bg-slate-950/80 text-slate-200 text-xs p-3.5 rounded-xl border border-slate-800 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 resize-none flex-1 leading-relaxed custom-scrollbar"></textarea>
+
+                <div class="mt-3 pt-3 border-t border-slate-800 flex justify-between items-center">
+                    <span id="charCount" class="text-[11px] text-slate-500">0 characters</span>
+                    <button id="summarizeBtn" onclick="generateSummary()" class="py-2 px-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-semibold rounded-xl transition shadow-lg shadow-indigo-600/30 flex items-center gap-2 active:scale-95">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        Summarize Transcript
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right Panel: Structured AI Summary Output -->
+        <div class="lg:col-span-7 flex flex-col">
+            <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-xl flex-1 flex flex-col backdrop-blur-md relative min-h-[480px]">
+                
+                <!-- Summary Panel Header -->
+                <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+                    <div>
+                        <h2 class="text-sm font-bold text-slate-100 flex items-center gap-2">
+                            <i class="fa-solid fa-brain text-indigo-400"></i>
+                            Structured AI Summary
+                        </h2>
+                        <p class="text-[11px] text-slate-400">Overview, Key Takeaways & Action Items</p>
+                    </div>
+
+                    <!-- Copy & Download Action Buttons -->
+                    <div class="flex items-center space-x-2">
+                        <button onclick="copySummary()" title="Copy to clipboard" class="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 transition text-xs flex items-center gap-1 active:scale-95">
+                            <i class="fa-regular fa-copy"></i>
+                            <span class="hidden sm:inline">Copy</span>
+                        </button>
+                        <button onclick="downloadSummary()" title="Export .txt file" class="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 transition text-xs flex items-center gap-1 active:scale-95">
+                            <i class="fa-solid fa-download"></i>
+                            <span class="hidden sm:inline">Export</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Empty State Display -->
+                <div id="summaryEmptyState" class="flex-1 flex flex-col items-center justify-center p-8 text-center">
+                    <div class="w-14 h-14 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-center mb-3 text-slate-600">
+                        <i class="fa-solid fa-file-signature text-xl"></i>
+                    </div>
+                    <h3 class="text-xs font-semibold text-slate-400">No Summary Generated Yet</h3>
+                    <p class="text-[11px] text-slate-500 max-w-xs mt-1">Start recording live voice or click one of the sample buttons on the left, then click "Summarize Transcript".</p>
+                </div>
+
+                <!-- Processing Overlay -->
+                <div id="summaryLoadingState" class="hidden absolute inset-0 bg-slate-950/80 backdrop-blur-sm rounded-2xl flex flex-col items-center justify-center z-20">
+                    <div class="w-10 h-10 border-3 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin mb-3"></div>
+                    <p class="text-xs font-medium text-slate-200">Analyzing Transcript Engine...</p>
+                    <p class="text-[11px] text-slate-400 mt-1">Extracting executive insights & action items</p>
+                </div>
+
+                <!-- Active Summary Container -->
+                <div id="summaryContent" class="hidden flex-1 overflow-y-auto pr-1 space-y-5 text-xs text-slate-300 leading-relaxed custom-scrollbar">
+                    
+                    <!-- Engine Indicator Badge -->
+                    <div class="flex justify-between items-center">
+                        <span id="engineBadge" class="px-2.5 py-1 rounded-md text-[10px] font-semibold bg-indigo-950 text-indigo-300 border border-indigo-800">
+                            Smart Built-in NLP Engine
+                        </span>
+                    </div>
+
+                    <!-- Executive Summary Card -->
+                    <div class="p-3.5 rounded-xl bg-indigo-950/30 border border-indigo-900/50">
+                        <h3 class="text-[10px] font-bold text-indigo-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                            <i class="fa-solid fa-compass"></i> Executive Summary
+                        </h3>
+                        <p id="summaryOverview" class="text-slate-200 font-normal leading-relaxed">
+                            --
+                        </p>
+                    </div>
+
+                    <!-- Key Takeaways Bullet List -->
+                    <div>
+                        <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                            <i class="fa-solid fa-list-check text-purple-400"></i> Key Takeaways
+                        </h3>
+                        <ul id="summaryTakeaways" class="space-y-2 text-slate-300">
+                        </ul>
+                    </div>
+
+                    <!-- Action Items Checkbox List -->
+                    <div>
+                        <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                            <i class="fa-solid fa-square-check text-emerald-400"></i> Action Items & Next Steps
+                        </h3>
+                        <ul id="summaryActions" class="space-y-2 text-slate-300">
+                        </ul>
+                    </div>
+
+                </div>
+
+            </div>
+        </div>
+
+    </main>
+
+    <!-- API Key Settings Modal -->
+    <div id="keyModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden flex items-center justify-center z-50 p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-5 shadow-2xl relative">
+            <h3 class="text-sm font-bold text-slate-100 flex items-center gap-2 mb-1">
+                <i class="fa-solid fa-key text-amber-400"></i>
+                Gemini API Key (Optional)
+            </h3>
+            <p class="text-xs text-slate-400 mb-3">If left blank, the app will automatically use its built-in Smart NLP Engine so you can test immediately without any key!</p>
+            
+            <input type="password" id="userApiKey" placeholder="Enter Gemini API Key..." class="w-full bg-slate-950 text-slate-200 text-xs p-3 rounded-xl border border-slate-800 focus:outline-none focus:border-indigo-500 mb-4">
+            
+            <div class="flex justify-end gap-2">
+                <button onclick="toggleKeyModal()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-medium transition">
+                    Close
+                </button>
+                <button onclick="saveApiKey()" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-medium transition">
+                    Save Key
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification Banner -->
+    <div id="toast" class="fixed bottom-5 right-5 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-900 text-slate-100 border border-slate-800 px-3.5 py-2.5 rounded-xl shadow-2xl flex items-center space-x-2 z-50">
+        <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400 text-xs"></i>
+        <span id="toastMsg" class="text-xs font-medium">Notification</span>
+    </div>
+
+    <script>
+        // State Variables
+        let recognition = null;
+        let isRecording = false;
+        let speechSupported = false;
+        let finalTranscript = '';
+        let timerInterval = null;
+        let recordingSeconds = 0;
+        let audioCtx = null;
+        let analyser = null;
+        let microphoneStream = null;
+        let visualizerAnimId = null;
+
+        // UI Element Handles
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const transcriptInput = document.getElementById('transcriptInput');
+        const charCount = document.getElementById('charCount');
+        const recordingTimer = document.getElementById('recordingTimer');
+        const statusBadge = document.getElementById('statusBadge');
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const visualizerCanvas = document.getElementById('visualizerCanvas');
+        const visualizerPlaceholder = document.getElementById('visualizerPlaceholder');
+
+        // Sample Session Transcripts for instant testing
+        const SAMPLES = {
+            standup: "Good morning team. Quick update for today: Sarah completed the backend API refactoring yesterday and deployed it to the staging environment. Alex noticed that response times improved by 35%. However, there is a minor bug in the user login flow on Safari browsers that needs immediate attention. David will work on fixing the Safari bug today before 3 PM. Also, please remember that the design sync meeting is rescheduled to tomorrow morning at 10 AM. Action item for everyone: review the updated roadmap document on Notion before our sync tomorrow.",
+            brainstorm: "We are discussing feature prioritization for our AI product launch next month. Option A is an automatic audio recorder with live transcript editing, which got high ratings in user surveys. Option B is an automated email summary sender. We agreed that the live transcript editor is essential for MVP. Action item: Maria will produce wireframes for the transcript editor by Friday. John will conduct an API cost comparison study between different LLM models by Wednesday afternoon."
+        };
+
+        // Initialize Web Speech API
+        function initSpeechRecognition() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            
+            if (SpeechRecognition) {
+                speechSupported = true;
+                recognition = new SpeechRecognition();
+                recognition.continuous = true;
+                recognition.interimResults = true;
+                recognition.lang = 'en-US';
+
+                recognition.onresult = (event) => {
+                    let interimTranscript = '';
+                    for (let i = event.resultIndex; i < event.results.length; ++i) {
+                        if (event.results[i].isFinal) {
+                            finalTranscript += event.results[i][0].transcript + ' ';
+                        } else {
+                            interimTranscript += event.results[i][0].transcript;
+                        }
+                    }
+                    transcriptInput.value = finalTranscript + interimTranscript;
+                    updateCharCount();
+                };
+
+                recognition.onerror = (event) => {
+                    console.warn("Speech recognition notice:", event.error);
+                    if (event.error === 'not-allowed') {
+                        showToast("Microphone permission denied", "error");
+                        stopSession();
+                    }
+                };
+
+                recognition.onend = () => {
+                    // Auto-restart while recording state is active
+                    if (isRecording && recognition) {
+                        try {
+                            recognition.start();
+                        } catch(e) {
+                            console.log("Recognition auto-restart handled");
+                        }
+                    }
+                };
+            } else {
+                speechSupported = false;
+                updateStatus("Ready (Speech API not supported in this browser - use Sample Data)", "ready");
+            }
+        }
+
+        // Start Recording Session
+        async function startSession() {
+            if (isRecording) return;
+
+            finalTranscript = transcriptInput.value ? transcriptInput.value + ' ' : '';
+
+            // Micro Visualizer Setup
+            try {
+                microphoneStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioCtx.createAnalyser();
+                const source = audioCtx.createMediaStreamSource(microphoneStream);
+                source.connect(analyser);
+                analyser.fftSize = 64;
+                drawVisualizer();
+            } catch (err) {
+                console.warn("Microphone visualizer unavailable:", err);
+            }
+
+            if (speechSupported && recognition) {
+                try {
+                    recognition.start();
+                } catch (e) {
+                    console.error("Speech start error:", e);
+                }
+            } else {
+                showToast("Live Speech API not supported. Use sample buttons to test!", "error");
+            }
+
+            isRecording = true;
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+
+            updateStatus("Recording...", "recording");
+
+            // Timer Counter
+            recordingSeconds = 0;
+            recordingTimer.innerText = "00:00";
+            timerInterval = setInterval(() => {
+                recordingSeconds++;
+                const mins = String(Math.floor(recordingSeconds / 60)).padStart(2, '0');
+                const secs = String(recordingSeconds % 60).padStart(2, '0');
+                recordingTimer.innerText = `${mins}:${secs}`;
+            }, 1000);
+
+            visualizerPlaceholder.classList.add('hidden');
+            showToast("Recording started - speak into mic!");
+        }
+
+        // Stop Recording Session
+        function stopSession() {
+            if (!isRecording) return;
+            isRecording = false;
+
+            if (recognition) {
+                try {
+                    recognition.stop();
+                } catch(e) {}
+            }
+
+            if (microphoneStream) {
+                microphoneStream.getTracks().forEach(track => track.stop());
+                microphoneStream = null;
+            }
+
+            if (audioCtx) {
+                audioCtx.close();
+                audioCtx = null;
+            }
+
+            if (visualizerAnimId) {
+                cancelAnimationFrame(visualizerAnimId);
+            }
+
+            clearInterval(timerInterval);
+
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+
+            updateStatus("Ready", "ready");
+
+            visualizerPlaceholder.classList.remove('hidden');
+            const ctx = visualizerCanvas.getContext('2d');
+            ctx.clearRect(0, 0, visualizerCanvas.width, visualizerCanvas.height);
+
+            showToast("Recording stopped");
+        }
+
+        // Draw Visualizer Equalizer
+        function drawVisualizer() {
+            if (!isRecording || !analyser) return;
+            visualizerAnimId = requestAnimationFrame(drawVisualizer);
+
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+            const ctx = visualizerCanvas.getContext('2d');
+
+            visualizerCanvas.width = visualizerCanvas.offsetWidth;
+            visualizerCanvas.height = visualizerCanvas.offsetHeight;
+
+            const width = visualizerCanvas.width;
+            const height = visualizerCanvas.height;
+
+            analyser.getByteFrequencyData(dataArray);
+            ctx.clearRect(0, 0, width, height);
+
+            const barWidth = (width / bufferLength) * 2.2;
+            let barX = 0;
+
+            for (let i = 0; i < bufferLength; i++) {
+                const barHeight = (dataArray[i] / 255) * height;
+                const gradient = ctx.createLinearGradient(0, height, 0, 0);
+                gradient.addColorStop(0, '#6366f1');
+                gradient.addColorStop(1, '#a855f7');
+
+                ctx.fillStyle = gradient;
+                ctx.fillRect(barX, height - barHeight, barWidth - 2, barHeight);
+                barX += barWidth;
+            }
+        }
+
+        // Update Header Status Badge
+        function updateStatus(text, state) {
+            statusText.innerText = text;
+            if (state === "recording") {
+                statusDot.className = "w-2 h-2 rounded-full bg-rose-500 recording-pulse";
+                statusBadge.className = "flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-950/80 border border-rose-800 text-rose-300 text-xs font-medium";
+            } else if (state === "processing") {
+                statusDot.className = "w-2 h-2 rounded-full bg-amber-400 animate-ping";
+                statusBadge.className = "flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-950/80 border border-amber-800 text-amber-300 text-xs font-medium";
+            } else {
+                statusDot.className = "w-2 h-2 rounded-full bg-emerald-400";
+                statusBadge.className = "flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-300 text-xs font-medium";
+            }
+        }
+
+        // Load Sample Transcript Data
+        function loadSampleText(type) {
+            if (isRecording) stopSession();
+            transcriptInput.value = SAMPLES[type] || '';
+            updateCharCount();
+            showToast("Sample transcript loaded!");
+        }
+
+        // Primary Summarizer Action
+        async function generateSummary() {
+            const text = transcriptInput.value.trim();
+            if (!text) {
+                showToast("Please record voice or enter transcript text!", "error");
+                return;
+            }
+
+            const loadingState = document.getElementById('summaryLoadingState');
+            loadingState.classList.remove('hidden');
+            updateStatus("Processing...", "processing");
+
+            const customKey = localStorage.getItem('gemini_custom_key');
+
+            if (customKey) {
+                // Call Gemini 1.5 Flash API
+                try {
+                    await callGeminiApi(text, customKey);
+                    document.getElementById('engineBadge').innerText = "Gemini 1.5 Flash AI";
+                } catch (err) {
+                    console.warn("Gemini API request failed, running offline fallback NLP engine:", err);
+                    runSmartOfflineSummarizer(text);
+                    document.getElementById('engineBadge').innerText = "Built-in NLP Engine (API Fallback)";
+                }
+            } else {
+                // Run Smart Built-in NLP Summarizer
+                setTimeout(() => {
+                    runSmartOfflineSummarizer(text);
+                    document.getElementById('engineBadge').innerText = "Smart Built-in NLP Engine";
+                }, 600);
+            }
+
+            loadingState.classList.add('hidden');
+            updateStatus("Ready", "ready");
+        }
+
+        // Gemini API Prompt Request
+        async function callGeminiApi(text, apiKey) {
+            const systemPrompt = "You are an executive notes assistant. Provide an executive summary, key takeaways, and action items from the transcript.";
+            const userPrompt = `Summarize the following speech transcript into structured executive summary, key takeaways, and action items:\n\n"${text}"`;
+
+            const payload = {
+                contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "OBJECT",
+                        properties: {
+                            executiveSummary: { type: "STRING" },
+                            keyTakeaways: { type: "ARRAY", items: { type: "STRING" } },
+                            actionItems: { type: "ARRAY", items: { type: "STRING" } }
+                        },
+                        required: ["executiveSummary", "keyTakeaways", "actionItems"]
+                    }
+                }
+            };
+
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+            const result = await response.json();
+            const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+            const data = JSON.parse(jsonText);
+            renderSummary(data);
+        }
+
+        // Smart Offline NLP Summarizer
+        function runSmartOfflineSummarizer(text) {
+            const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+            
+            // Executive Summary
+            const overview = sentences.slice(0, Math.min(2, sentences.length)).join(' ').trim();
+
+            // Key Takeaways
+            const takeaways = [];
+            sentences.forEach((sentence) => {
+                const clean = sentence.trim();
+                if (clean.length > 15) {
+                    takeaways.push(clean);
+                }
+            });
+
+            // Action Items heuristic search
+            const actionItems = [];
+            sentences.forEach((sentence) => {
+                const s = sentence.toLowerCase();
+                if (s.includes('will') || s.includes('action') || s.includes('need') || s.includes('fix') || s.includes('review') || s.includes('by ') || s.includes('today') || s.includes('tomorrow')) {
+                    actionItems.push(sentence.trim());
+                }
+            });
+
+            if (actionItems.length === 0 && sentences.length > 0) {
+                actionItems.push("Review transcript notes and confirm next steps with participants.");
+            }
+
+            renderSummary({
+                executiveSummary: overview || "This voice session highlights key discussion items and ongoing tasks.",
+                keyTakeaways: takeaways.slice(0, 4),
+                actionItems: actionItems.slice(0, 4)
+            });
+        }
+
+        // Render Summary Data into UI
+        function renderSummary(data) {
+            document.getElementById('summaryOverview').innerText = data.executiveSummary || "Summary completed.";
+
+            const takeawaysList = document.getElementById('summaryTakeaways');
+            takeawaysList.innerHTML = '';
+            (data.keyTakeaways || []).forEach(point => {
+                const li = document.createElement('li');
+                li.className = "flex items-start gap-2 text-slate-300";
+                li.innerHTML = `<i class="fa-solid fa-angle-right text-indigo-400 mt-1 text-xs"></i><span>${escapeHtml(point)}</span>`;
+                takeawaysList.appendChild(li);
+            });
+
+            const actionList = document.getElementById('summaryActions');
+            actionList.innerHTML = '';
+            (data.actionItems || []).forEach((item, idx) => {
+                const li = document.createElement('li');
+                li.className = "flex items-start gap-2 text-slate-300 bg-slate-950/40 p-2 rounded-lg border border-slate-800/60";
+                li.innerHTML = `
+                    <input type="checkbox" id="task-${idx}" class="mt-0.5 rounded bg-slate-900 border-slate-700 text-indigo-600 focus:ring-0 cursor-pointer">
+                    <label for="task-${idx}" class="cursor-pointer select-none">${escapeHtml(item)}</label>
+                `;
+                actionList.appendChild(li);
+            });
+
+            document.getElementById('summaryEmptyState').classList.add('hidden');
+            document.getElementById('summaryContent').classList.remove('hidden');
+            showToast("Summary generated successfully!");
+        }
+
+        // Helpers & Handlers
+        function updateCharCount() {
+            const count = transcriptInput.value.length;
+            charCount.innerText = `${count} character${count === 1 ? '' : 's'}`;
+        }
+
+        transcriptInput.addEventListener('input', updateCharCount);
+
+        function clearTranscript() {
+            transcriptInput.value = '';
+            finalTranscript = '';
+            updateCharCount();
+            showToast("Transcript cleared");
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.innerText = text;
+            return div.innerHTML;
+        }
+
+        function toggleKeyModal() {
+            const modal = document.getElementById('keyModal');
+            document.getElementById('userApiKey').value = localStorage.getItem('gemini_custom_key') || '';
+            modal.classList.toggle('hidden');
+        }
+
+        function saveApiKey() {
+            const val = document.getElementById('userApiKey').value.trim();
+            if (val) {
+                localStorage.setItem('gemini_custom_key', val);
+                showToast("Gemini API Key saved!");
+            } else {
+                localStorage.removeItem('gemini_custom_key');
+                showToast("Using Built-in NLP Engine");
+            }
+            toggleKeyModal();
+        }
+
+        function copySummary() {
+            const overview = document.getElementById('summaryOverview').innerText;
+            const takeaways = Array.from(document.querySelectorAll('#summaryTakeaways li')).map(el => "- " + el.innerText).join("\n");
+            const actions = Array.from(document.querySelectorAll('#summaryActions li')).map(el => "[ ] " + el.innerText).join("\n");
+
+            if (!overview || overview === "--") {
+                showToast("No summary available to copy", "error");
+                return;
+            }
+
+            const content = `EXECUTIVE SUMMARY:\n${overview}\n\nKEY TAKEAWAYS:\n${takeaways}\n\nACTION ITEMS:\n${actions}`;
+            
+            const area = document.createElement('textarea');
+            area.value = content;
+            document.body.appendChild(area);
+            area.select();
+            document.execCommand('copy');
+            document.body.removeChild(area);
+
+            showToast("Copied to clipboard!");
+        }
+
+        function downloadSummary() {
+            const overview = document.getElementById('summaryOverview').innerText;
+            const takeaways = Array.from(document.querySelectorAll('#summaryTakeaways li')).map(el => "- " + el.innerText).join("\n");
+            const actions = Array.from(document.querySelectorAll('#summaryActions li')).map(el => "[ ] " + el.innerText).join("\n");
+
+            if (!overview || overview === "--") {
+                showToast("No summary available to export", "error");
+                return;
+            }
+
+            const formatted = `VOICE NOTES AI SUMMARY\n======================\n\nEXECUTIVE SUMMARY:\n${overview}\n\nKEY TAKEAWAYS:\n${takeaways}\n\nACTION ITEMS:\n${actions}\n\n----------------------\nFULL TRANSCRIPT:\n${transcriptInput.value}`;
+
+            const blob = new Blob([formatted], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `voice-summary-${new Date().toISOString().slice(0,10)}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            showToast("Summary exported to file");
+        }
+
+        function showToast(message, type = "success") {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            const toastIcon = document.getElementById('toastIcon');
+
+            toastMsg.innerText = message;
+            toastIcon.className = type === "error" ? "fa-solid fa-circle-exclamation text-rose-400 text-xs" : "fa-solid fa-circle-check text-emerald-400 text-xs";
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        // Initialize Web Speech on page load
+        window.onload = () => {
+            initSpeechRecognition();
+        };
+    </script>
+</body>
+</html>
