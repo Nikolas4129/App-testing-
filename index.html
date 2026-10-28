@@ -75,9 +75,11 @@
     let isRecording = false;
     let microphoneStream = null;
     let restartTimer = null;
+    let finalTranscript = '';
+    let interimTranscript = '';
+
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     const isAndroid = /Android/i.test(navigator.userAgent);
-
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
     function setStatus(message, type = 'info') {
@@ -96,17 +98,27 @@
       if (!SpeechRecognition) return;
 
       recognition = new SpeechRecognition();
-      recognition.continuous = !isIOS;
+      recognition.continuous = false;
       recognition.interimResults = true;
       recognition.lang = 'en-US';
       recognition.maxAlternatives = 1;
 
       recognition.onresult = (event) => {
-        let text = '';
+        let newInterim = '';
+
         for (let i = event.resultIndex; i < event.results.length; i++) {
-          text += event.results[i][0].transcript + ' ';
+          const transcript = event.results[i][0].transcript.trim();
+          if (!transcript) continue;
+
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript + ' ';
+          } else {
+            newInterim += transcript + ' ';
+          }
         }
-        document.getElementById('transcript').value = text.trim();
+
+        interimTranscript = newInterim.trim();
+        document.getElementById('transcript').value = (finalTranscript + ' ' + interimTranscript).trim();
       };
 
       recognition.onerror = (event) => {
@@ -150,6 +162,12 @@
       };
     }
 
+    function resetTranscriptState() {
+      finalTranscript = '';
+      interimTranscript = '';
+      document.getElementById('transcript').value = '';
+    }
+
     async function startRecording() {
       if (!recognition) {
         alert('Web Speech API not available on this browser. You can type directly into the text box.');
@@ -173,7 +191,7 @@
       }
 
       isRecording = true;
-      document.getElementById('transcript').value = '';
+      resetTranscriptState();
       document.getElementById('summary').innerText = 'Summary will generate when you stop...';
 
       try {
