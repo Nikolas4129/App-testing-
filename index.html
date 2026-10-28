@@ -1,110 +1,305 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Voice Notes & AI Summarizer</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Thought Capture & Summary</title>
   <style>
     :root {
-      --bg: #0f172a;
-      --card: #1e293b;
-      --accent: #38bdf8;
-      --danger: #ef4444;
-      --success: #22c55e;
-      --text: #f8fafc;
-      --muted: #94a3b8;
-      --border: #334155;
+      --bg: #08111f;
+      --panel: #111c2e;
+      --panel-2: #16253d;
+      --text: #edf2ff;
+      --muted: #9fb3d1;
+      --accent: #5eead4;
+      --accent-2: #7c9cff;
+      --danger: #f87171;
+      --success: #34d399;
+      --border: rgba(148, 163, 184, 0.2);
+      --shadow: 0 24px 60px rgba(15, 23, 42, 0.45);
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
-    body { background: var(--bg); color: var(--text); padding: 16px; min-height: 100vh; display: flex; flex-direction: column; align-items: center; }
-    .container { width: 100%; max-width: 500px; display: flex; flex-direction: column; gap: 16px; }
-    header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
-    h1 { font-size: 1.1rem; font-weight: 700; }
-    .badge { font-size: 0.75rem; padding: 4px 8px; border-radius: 12px; background: var(--border); color: var(--muted); }
-    .badge.active { background: #7f1d1d; color: #fca5a5; animation: blink 1.5s infinite; }
-    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-    
-    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
-    .controls { display: flex; gap: 10px; }
-    button { flex: 1; padding: 14px; border: none; border-radius: 8px; font-weight: 600; font-size: 0.95rem; cursor: pointer; color: white; display: flex; justify-content: center; align-items: center; gap: 8px; }
-    button:disabled { opacity: 0.4; cursor: not-allowed; }
-    .btn-start { background: var(--success); }
-    .btn-stop { background: var(--danger); }
-    .btn-action { background: var(--accent); color: #0f172a; }
-    
-    .status { text-align: center; font-size: 0.85rem; color: var(--accent); min-height: 20px; }
-    label { font-size: 0.8rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
-    textarea { width: 100%; height: 120px; background: #0f172a; border: 1px solid var(--border); border-radius: 8px; padding: 10px; color: var(--text); font-size: 0.9rem; resize: vertical; }
-    .output-box { background: #0f172a; border: 1px solid var(--border); border-radius: 8px; padding: 12px; min-height: 100px; font-size: 0.9rem; line-height: 1.5; white-space: pre-wrap; }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: Inter, "Segoe UI", sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      background: linear-gradient(160deg, #08111f 0%, #0d172b 100%);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+    }
+
+    .app {
+      width: min(100%, 900px);
+      display: grid;
+      grid-template-columns: 1.1fr 1.2fr;
+      gap: 18px;
+    }
+
+    .card {
+      background: rgba(17, 28, 46, 0.92);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+      padding: 20px;
+    }
+
+    .left-col, .right-col {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 8px;
+    }
+
+    h1 {
+      font-size: clamp(1.4rem, 2vw, 2rem);
+      font-weight: 800;
+      letter-spacing: -0.04em;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 100px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--text);
+      background: rgba(93, 124, 182, 0.18);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+    }
+
+    .pill.recording {
+      background: rgba(248, 113, 113, 0.14);
+      border-color: rgba(248, 113, 113, 0.3);
+      color: #fecaca;
+    }
+
+    .controls {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      border: none;
+      border-radius: 12px;
+      padding: 13px 18px;
+      font-weight: 700;
+      font-size: 0.96rem;
+      cursor: pointer;
+      transition: transform 0.15s ease, opacity 0.15s ease;
+      color: white;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .primary {
+      background: linear-gradient(135deg, var(--success), #10b981);
+    }
+
+    .secondary {
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    }
+
+    .danger {
+      background: linear-gradient(135deg, var(--danger), #ef4444);
+    }
+
+    .muted {
+      background: rgba(148, 163, 184, 0.08);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .status {
+      min-height: 24px;
+      font-size: 0.92rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .notice {
+      font-size: 0.75rem;
+      color: var(--muted);
+      line-height: 1.5;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: rgba(148, 163, 184, 0.06);
+      border: 1px solid var(--border);
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 260px;
+      resize: vertical;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: rgba(8, 17, 31, 0.9);
+      color: var(--text);
+      padding: 16px;
+      font-size: 0.98rem;
+      line-height: 1.6;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: rgba(94, 234, 212, 0.55);
+      box-shadow: 0 0 0 3px rgba(94, 234, 212, 0.12);
+    }
+
+    .summary-box {
+      min-height: 280px;
+      background: rgba(8, 17, 31, 0.9);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px 16px;
+      white-space: pre-wrap;
+      line-height: 1.7;
+      color: var(--text);
+      font-size: 0.96rem;
+    }
+
+    .sample-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .sample-btn {
+      padding: 9px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: rgba(148, 163, 184, 0.08);
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    @media (max-width: 760px) {
+      .app {
+        grid-template-columns: 1fr;
+      }
+
+      .controls {
+        flex-direction: column;
+      }
+
+      .controls button {
+        width: 100%;
+      }
+    }
   </style>
 </head>
 <body>
+  <div class="app">
+    <div class="left-col">
+      <div class="card">
+        <div class="header">
+          <h1>Thought Capture</h1>
+          <div id="statusPill" class="pill">Ready</div>
+        </div>
 
-  <div class="container">
-    <header>
-      <h1>Voice Notes & Summarizer</h1>
-      <span id="badge" class="badge">Ready</span>
-    </header>
+        <div class="controls">
+          <button id="startBtn" class="primary" onclick="startListening()">🎙️ Start Listening</button>
+          <button id="stopBtn" class="danger" onclick="stopListening()" disabled>⏹ Stop Listening</button>
+        </div>
 
-    <!-- Recording Controls -->
-    <div class="card">
-      <div class="controls">
-        <button id="startBtn" class="btn-start" onclick="startRecording()">🎤 Start Recording</button>
-        <button id="stopBtn" class="btn-stop" onclick="stopRecording()" disabled>⏹ Stop Recording</button>
+        <div id="statusText" class="status">Press start listening, speak your thoughts, then press stop.</div>
+        <div class="notice">Works best in Chrome or Edge. If speech recognition is unavailable, you can type your thoughts manually.</div>
       </div>
-      <div id="status" class="status">Tap Start Recording to begin.</div>
+
+      <div class="card">
+        <div class="sample-row">
+          <button class="sample-btn" onclick="loadSample('idea')">Idea</button>
+          <button class="sample-btn" onclick="loadSample('meeting')">Meeting</button>
+          <button class="sample-btn" onclick="loadSample('brainstorm')">Brainstorm</button>
+        </div>
+
+        <textarea id="transcript" placeholder="Your spoken words will appear here after you stop listening, or type notes manually here..."></textarea>
+
+        <div class="controls">
+          <button class="secondary" onclick="generateSummary()">✨ Summarize</button>
+          <button class="muted" onclick="clearTranscript()">Clear</button>
+        </div>
+      </div>
     </div>
 
-    <!-- Transcript Box -->
-    <div class="card">
-      <label for="transcript">Recorded Speech / Notes</label>
-      <textarea id="transcript" placeholder="Speak while recording, or type notes here..."></textarea>
-      <button class="btn-action" onclick="generateSummary()">⚡ Summarize Notes</button>
-    </div>
-
-    <!-- Summary Box -->
-    <div class="card">
-      <label>Structured Summary</label>
-      <div id="summary" class="output-box">Your generated summary, takeaways, and action items will appear here.</div>
+    <div class="right-col">
+      <div class="card">
+        <div class="header">
+          <h1>Summary</h1>
+        </div>
+        <div id="summaryBox" class="summary-box">Your concise recap will appear here after the transcript is created.</div>
+      </div>
     </div>
   </div>
 
   <script>
+    const statusPill = document.getElementById('statusPill');
+    const statusText = document.getElementById('statusText');
+    const transcriptInput = document.getElementById('transcript');
+    const summaryBox = document.getElementById('summaryBox');
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+
     let recognition = null;
-    let isRecording = false;
-    let microphoneStream = null;
-    let restartTimer = null;
+    let isListening = false;
     let finalTranscript = '';
     let interimTranscript = '';
 
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    const isAndroid = /Android/i.test(navigator.userAgent);
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-    function setStatus(message, type = 'info') {
-      const el = document.getElementById('status');
-      el.innerText = message;
-      el.style.color = type === 'error' ? '#fca5a5' : '#38bdf8';
+    const samples = {
+      idea: "I want to build a personal note app that captures thoughts quickly and turns them into concise summaries. The system should make it easy to record an idea, review it later, and turn it into action items without much effort.",
+      meeting: "The team agreed to focus on one project this week. We need to finalize the user flow and confirm the launch checklist. Everyone will share status updates in the next standup and we should review the blockers before Friday.",
+      brainstorm: "We should think bigger about the product. A simple note capture feature with summaries and follow-up tasks could be very useful for busy people. The main win is saving time and turning raw thoughts into a clear plan without manual effort."
+    };
+
+    function setStatus(message, recording = false) {
+      statusText.textContent = message;
+      statusPill.textContent = recording ? 'Listening' : 'Ready';
+      statusPill.classList.toggle('recording', recording);
     }
 
-    function updateBadge(label, active = false) {
-      const badge = document.getElementById('badge');
-      badge.innerText = label;
-      badge.classList.toggle('active', active);
-    }
-
-    function initRecognition() {
-      if (!SpeechRecognition) return;
+    function initSpeechRecognition() {
+      if (!SpeechRecognition) {
+        setStatus('Speech recognition is not supported in this browser. You can still type your thoughts manually.', false);
+        return;
+      }
 
       recognition = new SpeechRecognition();
+      recognition.lang = 'en-US';
       recognition.continuous = false;
       recognition.interimResults = true;
-      recognition.lang = 'en-US';
       recognition.maxAlternatives = 1;
 
       recognition.onresult = (event) => {
-        let newInterim = '';
+        let interim = '';
 
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const transcript = event.results[i][0].transcript.trim();
@@ -113,147 +308,152 @@
           if (event.results[i].isFinal) {
             finalTranscript += transcript + ' ';
           } else {
-            newInterim += transcript + ' ';
+            interim += transcript + ' ';
           }
         }
 
-        interimTranscript = newInterim.trim();
-        document.getElementById('transcript').value = (finalTranscript + ' ' + interimTranscript).trim();
+        interimTranscript = interim.trim();
+        transcriptInput.value = (finalTranscript + ' ' + interimTranscript).trim();
       };
 
       recognition.onerror = (event) => {
-        console.warn('Speech recognition error:', event.error);
-
+        console.warn('Speech recognition issue:', event.error);
         if (event.error === 'not-allowed') {
-          setStatus('Microphone permission was denied. Please allow access and try again.', 'error');
-          stopRecording(true);
+          setStatus('Microphone permission was denied. Please allow access and try again.', false);
+          stopListening(false);
           return;
         }
 
         if (event.error === 'no-speech') {
-          setStatus('Listening... speak a little louder or closer to the mic.', 'info');
+          setStatus('No speech detected. Try again and speak clearly.', false);
+          stopListening(false);
           return;
         }
 
-        if (event.error === 'audio-capture') {
-          setStatus('Could not access the microphone on this device.', 'error');
-          stopRecording(true);
-          return;
-        }
-
-        if (event.error === 'network') {
-          setStatus('Network issue while listening. Please try again.', 'error');
-          stopRecording(true);
-          return;
-        }
+        setStatus('There was a problem listening. Please try again.', false);
+        stopListening(false);
       };
 
       recognition.onend = () => {
-        if (!isRecording) return;
-
-        clearTimeout(restartTimer);
-        restartTimer = setTimeout(() => {
+        if (isListening) {
           try {
             recognition.start();
           } catch (err) {
-            console.log('Restart blocked:', err.message);
+            console.log('Speech engine restart blocked:', err.message);
           }
-        }, isIOS ? 250 : 120);
+        }
       };
     }
 
-    function resetTranscriptState() {
-      finalTranscript = '';
-      interimTranscript = '';
-      document.getElementById('transcript').value = '';
-    }
-
-    async function startRecording() {
+    function startListening() {
       if (!recognition) {
-        alert('Web Speech API not available on this browser. You can type directly into the text box.');
+        initSpeechRecognition();
+      }
+
+      if (!recognition) {
+        setStatus('Speech recognition is unavailable here. Type your thoughts manually instead.', false);
         return;
       }
 
-      if (isRecording) return;
+      if (isListening) return;
 
-      try {
-        microphoneStream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true
-          },
-          video: false
-        });
-      } catch (err) {
-        setStatus('Microphone permission denied or unavailable on this device.', 'error');
-        return;
-      }
-
-      isRecording = true;
-      resetTranscriptState();
-      document.getElementById('summary').innerText = 'Summary will generate when you stop...';
+      isListening = true;
+      finalTranscript = transcriptInput.value ? transcriptInput.value.trim() + ' ' : '';
+      interimTranscript = '';
+      startBtn.disabled = true;
+      stopBtn.disabled = false;
+      setStatus('Listening... speak your thoughts clearly.', true);
 
       try {
         recognition.start();
       } catch (err) {
-        console.log('Start already in progress:', err.message);
+        console.log('Already started:', err.message);
       }
-
-      updateBadge('Recording', true);
-      setStatus(isAndroid ? '🎙️ Listening... Speak clearly into the mic.' : '🎙️ Listening... Speak clearly and keep the phone near your mouth.');
-      document.getElementById('startBtn').disabled = true;
-      document.getElementById('stopBtn').disabled = false;
     }
 
-    function stopRecording(force = false) {
-      if (!force && !isRecording) return;
-      isRecording = false;
+    function stopListening(shouldGenerate = true) {
+      if (!isListening && !recognition) return;
+
+      isListening = false;
 
       if (recognition) {
         try {
           recognition.stop();
         } catch (err) {
-          console.log('Stop recognition ignored:', err.message);
+          console.log('Speech stop ignored:', err.message);
         }
       }
 
-      if (microphoneStream) {
-        microphoneStream.getTracks().forEach(track => track.stop());
-        microphoneStream = null;
-      }
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+      setStatus('Listening stopped. Your transcript is ready to review.', false);
 
-      clearTimeout(restartTimer);
-      updateBadge('Ready', false);
-      setStatus('Recording stopped.', 'info');
-      document.getElementById('startBtn').disabled = false;
-      document.getElementById('stopBtn').disabled = true;
-
-      if (!force) {
+      if (shouldGenerate) {
         generateSummary();
       }
     }
 
+    function clearTranscript() {
+      transcriptInput.value = '';
+      finalTranscript = '';
+      interimTranscript = '';
+      summaryBox.textContent = 'Your concise recap will appear here after the transcript is created.';
+      setStatus('Transcript cleared.', false);
+    }
+
+    function loadSample(type) {
+      transcriptInput.value = samples[type] || samples.idea;
+      finalTranscript = transcriptInput.value;
+      interimTranscript = '';
+      setStatus('Sample thoughts loaded.', false);
+    }
+
     function generateSummary() {
-      const text = document.getElementById('transcript').value.trim();
-      const summaryBox = document.getElementById('summary');
+      const text = transcriptInput.value.trim();
 
       if (!text) {
-        summaryBox.innerText = 'No text found to summarize.';
+        summaryBox.textContent = 'No thoughts captured yet. Start listening or type notes first.';
         return;
       }
 
-      const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
-      const overview = sentences.slice(0, 2).join(' ');
-      const keyPoints = sentences.map((s, i) => `• Takeaway ${i + 1}: ${s.trim()}`).slice(0, 3).join('\n');
+      const cleaned = text.replace(/\s+/g, ' ').trim();
+      const sentences = cleaned.match(/[^.!?]+[.!?]+/g) || [cleaned];
 
-      summaryBox.innerText =
-        `📌 EXECUTIVE OVERVIEW:\n${overview}\n\n` +
-        `💡 KEY TAKEAWAYS:\n${keyPoints}\n\n` +
-        `✅ ACTION ITEMS:\n• Review session notes and share updates.`;
+      const overview = sentences.slice(0, 2).join(' ').trim();
+      const keyIdeas = sentences
+        .filter(sentence => sentence.trim().length > 18)
+        .slice(0, 4)
+        .map((sentence, index) => `${index + 1}. ${sentence.trim()}`)
+        .join('\n');
+
+      const actionItems = [];
+      sentences.forEach(sentence => {
+        const lower = sentence.toLowerCase();
+        if (
+          lower.includes('need') ||
+          lower.includes('must') ||
+          lower.includes('should') ||
+          lower.includes('will') ||
+          lower.includes('review') ||
+          lower.includes('follow up') ||
+          lower.includes('next') ||
+          lower.includes('tomorrow') ||
+          lower.includes('today') ||
+          lower.includes('fix')
+        ) {
+          actionItems.push(sentence.trim());
+        }
+      });
+
+      const finalActions = actionItems.length ? actionItems.slice(0, 3) : ['Review the notes and decide the next concrete action.'];
+
+      summaryBox.textContent =
+        `THOUGHT OVERVIEW\n${overview || 'This note captures the main idea and direction of the conversation.'}\n\n` +
+        `KEY TAKEAWAYS\n${keyIdeas || '1. The core idea is clearly captured in the transcript.'}\n\n` +
+        `ACTION ITEMS\n${finalActions.map((item, idx) => `${idx + 1}. ${item}`).join('\n')}`;
     }
 
-    initRecognition();
+    initSpeechRecognition();
   </script>
 </body>
 </html>
