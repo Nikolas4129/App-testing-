@@ -37,15 +37,13 @@
     label { font-size: 0.8rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
     textarea { width: 100%; height: 120px; background: #0f172a; border: 1px solid var(--border); border-radius: 8px; padding: 10px; color: var(--text); font-size: 0.9rem; resize: vertical; }
     .output-box { background: #0f172a; border: 1px solid var(--border); border-radius: 8px; padding: 12px; min-height: 100px; font-size: 0.9rem; line-height: 1.5; white-space: pre-wrap; }
-    
-    input[type="password"] { width: 100%; background: #0f172a; border: 1px solid var(--border); border-radius: 8px; padding: 10px; color: var(--text); font-size: 0.85rem; }
   </style>
 </head>
 <body>
 
   <div class="container">
     <header>
-      <h1>Voice Notes & AI Summarizer</h1>
+      <h1>Voice Notes & Summarizer</h1>
       <span id="badge" class="badge">Ready</span>
     </header>
 
@@ -55,141 +53,100 @@
         <button id="startBtn" class="btn-start" onclick="startRecording()">🎤 Start Recording</button>
         <button id="stopBtn" class="btn-stop" onclick="stopRecording()" disabled>⏹ Stop Recording</button>
       </div>
-      <div id="status" class="status">Tap Start Recording to capture audio.</div>
-    </div>
-
-    <!-- API Key Input -->
-    <div class="card">
-      <label for="apiKey">Gemini API Key (Required for Multimodal Transcription)</label>
-      <input type="password" id="apiKey" placeholder="AIzaSy..." onchange="saveKey()">
+      <div id="status" class="status">Tap Start Recording to begin.</div>
     </div>
 
     <!-- Transcript Box -->
     <div class="card">
-      <label for="transcript">Transcript / Spoken Content</label>
-      <textarea id="transcript" placeholder="Transcribed audio will appear here..."></textarea>
+      <label for="transcript">Recorded Speech / Notes</label>
+      <textarea id="transcript" placeholder="Speak while recording, or type notes here..."></textarea>
+      <button class="btn-action" onclick="generateSummary()">⚡ Summarize Notes</button>
     </div>
 
     <!-- Summary Box -->
     <div class="card">
-      <label>AI Structured Summary</label>
-      <div id="summary" class="output-box">Your summary (Executive Summary, Key Takeaways, Action Items) will generate here after recording stops.</div>
+      <label>Structured Summary</label>
+      <div id="summary" class="output-box">Your generated summary, takeaways, and action items will appear here.</div>
     </div>
   </div>
 
   <script>
-    let mediaRecorder;
-    let audioChunks = [];
+    let recognition;
+    let isRecording = false;
 
-    window.onload = () => {
-      const savedKey = localStorage.getItem('gemini_api_key');
-      if (savedKey) document.getElementById('apiKey').value = savedKey;
-    };
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-    function saveKey() {
-      const key = document.getElementById('apiKey').value.trim();
-      localStorage.setItem('gemini_api_key', key);
+    if (SpeechRecognition) {
+      recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onresult = (event) => {
+        let text = '';
+        for (let i = 0; i < event.results.length; i++) {
+          text += event.results[i][0].transcript + ' ';
+        }
+        document.getElementById('transcript').value = text;
+      };
+
+      recognition.onerror = (e) => {
+        document.getElementById('status').innerText = "Mic note: " + e.error;
+      };
     }
 
-    async function startRecording() {
-      const key = document.getElementById('apiKey').value.trim() || localStorage.getItem('gemini_api_key');
-      if (!key) {
-        alert("Please enter a valid Gemini API Key first!");
+    function startRecording() {
+      if (!recognition) {
+        alert("Web Speech API not available on this browser. You can type directly into the text box.");
         return;
       }
-
+      isRecording = true;
+      document.getElementById('transcript').value = '';
+      document.getElementById('summary').innerText = 'Summary will generate when you stop...';
+      
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        audioChunks = [];
-        mediaRecorder = new MediaRecorder(stream);
-
-        mediaRecorder.ondataavailable = (event) => {
-          if (event.data.size > 0) audioChunks.push(event.data);
-        };
-
-        mediaRecorder.onstop = processAudioWithGemini;
-
-        mediaRecorder.start();
+        recognition.start();
         document.getElementById('badge').innerText = "Recording";
         document.getElementById('badge').classList.add('active');
-        document.getElementById('status').innerText = "🎙️ Recording audio stream... Speak into your microphone.";
+        document.getElementById('status').innerText = "🎙️ Listening... Speak clearly.";
         document.getElementById('startBtn').disabled = true;
         document.getElementById('stopBtn').disabled = false;
       } catch (err) {
-        document.getElementById('status').innerText = "❌ Mic Permission Error: " + err.message;
+        document.getElementById('status').innerText = "Error starting mic: " + err.message;
       }
     }
 
     function stopRecording() {
-      if (mediaRecorder && mediaRecorder.state !== "inactive") {
-        mediaRecorder.stop();
-        // Stop audio track release
-        mediaRecorder.stream.getTracks().forEach(track => track.stop());
+      if (recognition && isRecording) {
+        isRecording = false;
+        recognition.stop();
       }
-      document.getElementById('badge').innerText = "Processing";
+      document.getElementById('badge').innerText = "Ready";
       document.getElementById('badge').classList.remove('active');
-      document.getElementById('status').innerText = "⏳ Uploading audio to Gemini AI for transcription & summarization...";
+      document.getElementById('status').innerText = "Recording stopped.";
       document.getElementById('startBtn').disabled = false;
       document.getElementById('stopBtn').disabled = true;
+
+      generateSummary();
     }
 
-    async function processAudioWithGemini() {
-      const apiKey = document.getElementById('apiKey').value.trim() || localStorage.getItem('gemini_api_key');
-      const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+    function generateSummary() {
+      const text = document.getElementById('transcript').value.trim();
+      const summaryBox = document.getElementById('summary');
 
-      // Convert Audio Blob to Base64
-      const reader = new FileReader();
-      reader.readAsDataURL(audioBlob);
-      reader.onloadend = async () => {
-        const base64Audio = reader.result.split(',')[1];
+      if (!text) {
+        summaryBox.innerText = "No text found to summarize.";
+        return;
+      }
 
-        const promptText = 
-          "Analyze the attached audio recording and respond in strictly two distinct formatted sections:\n\n" +
-          "SECTION 1: TRANSCRIPT\n" +
-          "Provide a full word-for-word verbatim transcription of what was spoken in the audio.\n\n" +
-          "SECTION 2: SUMMARY\n" +
-          "Provide a structured summary formatted as follows:\n" +
-          "• Executive Summary (2-3 sentences)\n" +
-          "• Key Takeaways\n" +
-          "• Action Items / Next Steps";
+      const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+      const overview = sentences.slice(0, 2).join(' ');
+      const keyPoints = sentences.map((s, i) => `• Takeaway ${i + 1}: ${s.trim()}`).slice(0, 3).join('\n');
 
-        try {
-          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{
-                parts: [
-                  { text: promptText },
-                  { inline_data: { mime_type: "audio/webm", data: base64Audio } }
-                ]
-              }]
-            })
-          });
-
-          const data = await response.json();
-          if (data.error) {
-            document.getElementById('status').innerText = "❌ API Error: " + data.error.message;
-            return;
-          }
-
-          const rawOutput = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-          
-          // Split verbatim transcript and summary sections
-          if (rawOutput.includes("SECTION 2: SUMMARY")) {
-            const parts = rawOutput.split("SECTION 2: SUMMARY");
-            document.getElementById('transcript').value = parts[0].replace("SECTION 1: TRANSCRIPT", "").trim();
-            document.getElementById('summary').innerText = parts[1].trim();
-          } else {
-            document.getElementById('transcript').value = rawOutput;
-            document.getElementById('summary').innerText = "Summary section generated above.";
-          }
-
-          document.getElementById('status').innerText = "✅ Complete! Audio transcribed and summarized.";
-        } catch (err) {
-          document.getElementById('status').innerText = "❌ Error processing audio: " + err.message;
-        }
-      };
+      summaryBox.innerText = 
+        `📌 EXECUTIVE OVERVIEW:\n${overview}\n\n` +
+        `💡 KEY TAKEAWAYS:\n${keyPoints}\n\n` +
+        `✅ ACTION ITEMS:\n• Review session notes and share updates.`;
     }
   </script>
 </body>
