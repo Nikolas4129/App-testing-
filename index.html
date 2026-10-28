@@ -71,63 +71,149 @@
   </div>
 
   <script>
-    let recognition;
+    let recognition = null;
     let isRecording = false;
+    let microphoneStream = null;
+    let restartTimer = null;
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const isAndroid = /Android/i.test(navigator.userAgent);
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-    if (SpeechRecognition) {
+    function setStatus(message, type = 'info') {
+      const el = document.getElementById('status');
+      el.innerText = message;
+      el.style.color = type === 'error' ? '#fca5a5' : '#38bdf8';
+    }
+
+    function updateBadge(label, active = false) {
+      const badge = document.getElementById('badge');
+      badge.innerText = label;
+      badge.classList.toggle('active', active);
+    }
+
+    function initRecognition() {
+      if (!SpeechRecognition) return;
+
       recognition = new SpeechRecognition();
-      recognition.continuous = true;
+      recognition.continuous = !isIOS;
       recognition.interimResults = true;
       recognition.lang = 'en-US';
+      recognition.maxAlternatives = 1;
 
       recognition.onresult = (event) => {
         let text = '';
-        for (let i = 0; i < event.results.length; i++) {
+        for (let i = event.resultIndex; i < event.results.length; i++) {
           text += event.results[i][0].transcript + ' ';
         }
-        document.getElementById('transcript').value = text;
+        document.getElementById('transcript').value = text.trim();
       };
 
-      recognition.onerror = (e) => {
-        document.getElementById('status').innerText = "Mic note: " + e.error;
+      recognition.onerror = (event) => {
+        console.warn('Speech recognition error:', event.error);
+
+        if (event.error === 'not-allowed') {
+          setStatus('Microphone permission was denied. Please allow access and try again.', 'error');
+          stopRecording(true);
+          return;
+        }
+
+        if (event.error === 'no-speech') {
+          setStatus('Listening... speak a little louder or closer to the mic.', 'info');
+          return;
+        }
+
+        if (event.error === 'audio-capture') {
+          setStatus('Could not access the microphone on this device.', 'error');
+          stopRecording(true);
+          return;
+        }
+
+        if (event.error === 'network') {
+          setStatus('Network issue while listening. Please try again.', 'error');
+          stopRecording(true);
+          return;
+        }
+      };
+
+      recognition.onend = () => {
+        if (!isRecording) return;
+
+        clearTimeout(restartTimer);
+        restartTimer = setTimeout(() => {
+          try {
+            recognition.start();
+          } catch (err) {
+            console.log('Restart blocked:', err.message);
+          }
+        }, isIOS ? 250 : 120);
       };
     }
 
-    function startRecording() {
+    async function startRecording() {
       if (!recognition) {
-        alert("Web Speech API not available on this browser. You can type directly into the text box.");
+        alert('Web Speech API not available on this browser. You can type directly into the text box.');
         return;
       }
+
+      if (isRecording) return;
+
+      try {
+        microphoneStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          },
+          video: false
+        });
+      } catch (err) {
+        setStatus('Microphone permission denied or unavailable on this device.', 'error');
+        return;
+      }
+
       isRecording = true;
       document.getElementById('transcript').value = '';
       document.getElementById('summary').innerText = 'Summary will generate when you stop...';
-      
+
       try {
         recognition.start();
-        document.getElementById('badge').innerText = "Recording";
-        document.getElementById('badge').classList.add('active');
-        document.getElementById('status').innerText = "🎙️ Listening... Speak clearly.";
-        document.getElementById('startBtn').disabled = true;
-        document.getElementById('stopBtn').disabled = false;
       } catch (err) {
-        document.getElementById('status').innerText = "Error starting mic: " + err.message;
+        console.log('Start already in progress:', err.message);
       }
+
+      updateBadge('Recording', true);
+      setStatus(isAndroid ? '🎙️ Listening... Speak clearly into the mic.' : '🎙️ Listening... Speak clearly and keep the phone near your mouth.');
+      document.getElementById('startBtn').disabled = true;
+      document.getElementById('stopBtn').disabled = false;
     }
 
-    function stopRecording() {
-      if (recognition && isRecording) {
-        isRecording = false;
-        recognition.stop();
+    function stopRecording(force = false) {
+      if (!force && !isRecording) return;
+      isRecording = false;
+
+      if (recognition) {
+        try {
+          recognition.stop();
+        } catch (err) {
+          console.log('Stop recognition ignored:', err.message);
+        }
       }
-      document.getElementById('badge').innerText = "Ready";
-      document.getElementById('badge').classList.remove('active');
-      document.getElementById('status').innerText = "Recording stopped.";
+
+      if (microphoneStream) {
+        microphoneStream.getTracks().forEach(track => track.stop());
+        microphoneStream = null;
+      }
+
+      clearTimeout(restartTimer);
+      updateBadge('Ready', false);
+      setStatus('Recording stopped.', 'info');
       document.getElementById('startBtn').disabled = false;
       document.getElementById('stopBtn').disabled = true;
 
-      generateSummary();
+      if (!force) {
+        generateSummary();
+      }
     }
 
     function generateSummary() {
@@ -135,7 +221,7 @@
       const summaryBox = document.getElementById('summary');
 
       if (!text) {
-        summaryBox.innerText = "No text found to summarize.";
+        summaryBox.innerText = 'No text found to summarize.';
         return;
       }
 
@@ -143,11 +229,13 @@
       const overview = sentences.slice(0, 2).join(' ');
       const keyPoints = sentences.map((s, i) => `• Takeaway ${i + 1}: ${s.trim()}`).slice(0, 3).join('\n');
 
-      summaryBox.innerText = 
+      summaryBox.innerText =
         `📌 EXECUTIVE OVERVIEW:\n${overview}\n\n` +
         `💡 KEY TAKEAWAYS:\n${keyPoints}\n\n` +
         `✅ ACTION ITEMS:\n• Review session notes and share updates.`;
     }
+
+    initRecognition();
   </script>
 </body>
 </html>
